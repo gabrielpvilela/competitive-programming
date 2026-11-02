@@ -1949,6 +1949,29 @@ void precomputar() {
 }
 \end{lstlisting}
 
+\subsection{Combinatória}
+\begin{lstlisting}
+// Combinacao: C(n, k) = n! / (k! * (n - k)!) em O(1)
+long long nCr(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    return (((fat[n] * invfat[k]) % MOD) * invfat[n - k]) % MOD;
+}
+
+// Arranjo: A(n, k) = n! / (n - k)! em O(1)
+long long nPr(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    return (fat[n] * invfat[n - k]) % MOD;
+}
+
+// Bolas e Barras (Stars and Bars): x_1 + x_2 + ... + x_k = n (x_i >= 0) em O(1)
+// Cuidado: exige MAXN > n + k - 1
+long long stars_and_bars(int n, int k) {
+    if (n == 0 && k == 0) return 1;
+    if (n < 0 || k <= 0) return 0;
+    return nCr(n + k - 1, k - 1);
+}
+\end{lstlisting}
+
 \subsection{Conversão de Bases Numéricas}
 
 \subsubsection{De Decimal (Base 10) para Base B}
