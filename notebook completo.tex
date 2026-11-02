@@ -2906,10 +2906,10 @@ bool intersect(point a, point b, point c, point d) {
     int o1 = ccw(c, d, a), o2 = ccw(c, d, b);
     int o3 = ccw(a, b, c), o4 = ccw(a, b, d);
     if (o1 * o2 < 0 && o3 * o4 < 0) return true;
-    if (on_segment(c, a, d) && o1 == 0) return true;
+    if (on_segment(a, c, d) && o1 == 0) return true;
     if (on_segment(b, c, d) && o2 == 0) return true;
-    if (on_segment(a, c, d) && o3 == 0) return true;
-    if (on_segment(b, c, d) && o4 == 0) return true;
+    if (on_segment(c, a, b) && o3 == 0) return true;
+    if (on_segment(d, a, b) && o4 == 0) return true;
     return false;
 }
 
