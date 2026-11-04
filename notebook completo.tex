@@ -3209,22 +3209,33 @@ double area_poligono(const polygon& poly) {
     return fabs(area_duplicada) / 2.0;
 }
 
-bool inside3(point& p1, point& p2, point& p3, point& pt){
-    return (ccw(p1, p2, pt) >= 0 && ccw(p2, p3, pt) >= 0 && ccw(p3, p1, pt) >=0);
-}
- 
-bool inside(vector<point> &p, point &pt){
-    int l = 1;
-    int r = p.size()-1;
-    while(l+1 < r){
-        int m = (l+r)/2;
-        int d = ccw(p[0], p[m], pt);
-        if(d >= 0){
-            l = m;
-        }
+// Poligono 'p' deve estar em sentido ANTI-HORARIO e sem pontos colineares redundantes (n >= 3)
+// Retorna: 1 (estritamente dentro), 0 (na borda), -1 (fora)
+int inside_convex(const polygon& p, point pt) {
+    int n = p.size();
+    
+    // 1. Checa se esta fora do "leque" angular formado por p[0]->p[1] e p[0]->p[n-1]
+    int c1 = ccw(p[0], p[1], pt);
+    int c2 = ccw(p[0], p[n - 1], pt);
+    if (c1 < 0 || c2 > 0) return -1;
+
+    // 2. Se for colinear com a primeira ou ultima aresta do leque, checa se esta no segmento
+    if (c1 == 0) return on_segment(pt, p[0], p[1]) ? 0 : -1;
+    if (c2 == 0) return on_segment(pt, p[0], p[n - 1]) ? 0 : -1;
+
+    // 3. Busca binaria para achar a fatia (p[0], p[l], p[l+1]) que contem 'pt'
+    int l = 1, r = n - 1;
+    while (l + 1 < r) {
+        int m = (l + r) / 2;
+        if (ccw(p[0], p[m], pt) >= 0) l = m;
         else r = m;
     }
-    return inside3(p[0], p[l], p[r], pt);
+
+    // 4. Checa a relacao de 'pt' com a aresta externa p[l] -> p[r]
+    int edge_dir = ccw(p[l], p[r], pt);
+    if (edge_dir < 0) return -1; // Passou da aresta externa (fora)
+    if (edge_dir == 0) return 0; // Exatamente em cima da aresta p[l]->p[r] (borda)
+    return 1;                    // Estritamente dentro (mesmo se estiver na diagonal p[0]->p[l])
 }
 \end{lstlisting}
 
