@@ -70,6 +70,68 @@ ios::sync_with_stdio(false);
 cin.tie(nullptr);
 \end{lstlisting}
 
+\subsection{Header Python}
+\begin{lstlisting}
+import sys
+import math
+from decimal import Decimal, getcontext
+
+# --- 1. CONFIGURAÇÃO DE RECURSÃO E FAST I/O ---
+# sys.setrecursionlimit(200_000) # Cuidado: estouro de memória no Windows se for alto demais
+input = sys.stdin.readline       # Substitui input() por leitura rápida (mantém \n no final)
+
+# --- 2. LEITURA DE ENTRADAS ---
+
+# Um único inteiro / float / string
+n = int(input())
+f = float(input())
+s = input().rstrip()             # rstrip() remove o '\n' do final
+
+# Dois ou mais inteiros na mesma linha: a, b = map(int, input().split())
+a, b, c = map(int, input().split())
+
+# Lista de inteiros na mesma linha
+arr = list(map(int, input().split()))
+
+# Lista de strings na mesma linha
+words = input().split()
+
+# Ler N linhas com um inteiro em cada
+col = [int(input()) for _ in range(n)]
+
+# Ler matriz N x M de inteiros
+# grid = [list(map(int, input().split())) for _ in range(n)]
+
+# Ler até o fim do arquivo (EOF / While True)
+# Opção A: Leitura contínua
+# for line in sys.stdin:
+#     val = int(line)
+#
+# Opção B: Tokenizer rápido (para entradas caóticas / separadas por qualquer whitespace)
+# tokens = sys.stdin.read().split()
+# it = iter(tokens)
+# n = int(next(it))
+# arr = [int(next(it)) for _ in range(n)]
+
+# --- 3. SAÍDA RÁPIDA ---
+# sys.stdout.write(f"{ans}\n")   # Mais rápido que print() para dezenas de milhares de saídas
+# sys.stdout.write(" ".join(map(str, arr)) + "\n")
+
+# --- 4. PRECISÃO E PONTO FLUTUANTE ---
+
+# Formatação padrão (arredondamento de exibição)
+x = 1 / 3
+# print(f"{x:.6f}")              # 6 casas decimais
+# print(f"{x:.10f}")
+
+# Comparação segura de floats (evitar x == y)
+# math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9)
+
+# Alta precisão exata (quando double/float padrão de 64 bits perde dígitos)
+# getcontext().prec = 50         # Define 50 dígitos de precisão
+# d = Decimal('1') / Decimal('7')
+\end{lstlisting}
+
 \subsection{Fórmulas Úteis}
 
 \subsubsection{Combinatória}
