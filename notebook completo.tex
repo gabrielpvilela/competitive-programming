@@ -3237,6 +3237,24 @@ int inside_convex(const polygon& p, point pt) {
     if (edge_dir == 0) return 0; // Exatamente em cima da aresta p[l]->p[r] (borda)
     return 1;                    // Estritamente dentro (mesmo se estiver na diagonal p[0]->p[l])
 }
+
+// Funciona para QUALQUER poligono simples (convexo ou concavo, horario ou anti-horario)
+// Retorna: 1 (estritamente dentro), 0 (na borda), -1 (fora) — Complexidade: O(N)
+int inside_poly(const polygon& p, point pt) {
+    int n = p.size(), wn = 0;
+    for (int i = 0; i < n; i++) {
+        point a = p[i], b = p[(i + 1) % n];
+        if (on_segment(pt, a, b)) return 0; // Exatamente em cima da aresta (borda)
+        
+        if (cmp(a.y, pt.y) <= 0) {
+            if (cmp(b.y, pt.y) > 0 && ccw(a, b, pt) > 0) wn++; // Aresta sobe e passa a direita
+        } else {
+            if (cmp(b.y, pt.y) <= 0 && ccw(a, b, pt) < 0) wn--; // Aresta desce e passa a direita
+        }
+    }
+    return wn != 0 ? 1 : -1;
+}
+
 \end{lstlisting}
 
 \subsection{Fecho Convexo (Convex Hull) - Monotone Chain (Andrew)}
