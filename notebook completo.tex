@@ -3158,6 +3158,57 @@ bool inside(vector<point> &p, point &pt){
 }
 \end{lstlisting}
 
+\subsection{Fecho Convexo (Convex Hull) - Monotone Chain (Andrew)}
+Constrói o fecho convexo em sentido \textbf{anti-horário} (Lower + Upper Hull). Complexidade: \textbf{O(N log N)}.
+\begin{lstlisting}
+// Usa struct point, operator<, operator== e ccw() do Template Basico
+void fecho_convexo(vector<point>& pts, bool include_collinear = false) {
+    sort(pts.begin(), pts.end());
+    pts.erase(unique(pts.begin(), pts.end()), pts.end());
+    
+    int n = pts.size();
+    if (n <= 1) return;
+
+    // Caso degenerado: todos os pontos colineares e queremos manter os da borda
+    if (include_collinear) {
+        bool all_collinear = true;
+        for (int i = 2; i < n; i++)
+            if (ccw(pts[0], pts.back(), pts[i]) != 0) all_collinear = false;
+        if (all_collinear) return; // Ja esta ordenado e sem duplicatas
+    }
+
+    vector<point> hull;
+    hull.reserve(2 * n);
+
+    // Lower Hull (esquerda -> direita)
+    for (int i = 0; i < n; i++) {
+        while (hull.size() >= 2) {
+            int decision = ccw(hull[hull.size() - 2], hull.back(), pts[i]);
+            if (decision < 0 || (!include_collinear && decision == 0))
+                hull.pop_back();
+            else
+                break;
+        }
+        hull.push_back(pts[i]);
+    }
+
+    // Upper Hull (direita -> esquerda)
+    for (int i = n - 2, t = hull.size() + 1; i >= 0; i--) {
+        while ((int)hull.size() >= t) {
+            int decision = ccw(hull[hull.size() - 2], hull.back(), pts[i]);
+            if (decision < 0 || (!include_collinear && decision == 0))
+                hull.pop_back();
+            else
+                break;
+        }
+        hull.push_back(pts[i]);
+    }
+
+    hull.pop_back(); // Remove duplicata do primeiro ponto
+    pts = hull;
+}
+\end{lstlisting}
+
 \subsection{Fecho Convexo (Convex Hull) - Algoritmo de Graham Scan}
 O fecho convexo de um conjunto de pontos é o menor polígono convexo que contém todos os pontos.
 A complexidade é dominada pela ordenação, sendo \textbf{O(NlogN)}.
