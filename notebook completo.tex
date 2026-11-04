@@ -44,11 +44,12 @@
     breakatwhitespace=false,
     extendedchars=true,
     literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
-             {ã}{{\~a}}1 {õ}{{\~o}}1 {ç}{{\c{c}}}1 {Ç}{{\c{C}}}1
-             {â}{{\^a}}1 {ê}{{\^e}}1 {î}{{\^i}}1 {ô}{{\^o}}1 {û}{{\^u}}1
-             {à}{{\`a}}1 {À}{{\`A}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
-             {Ã}{{\~A}}1 {Õ}{{\~O}}1
-             {Â}{{\^A}}1 {Ê}{{\^E}}1 {Î}{{\^I}}1 {Ô}{{\^O}}1 {Û}{{\^U}}1
+         {ã}{{\~a}}1 {õ}{{\~o}}1 {ç}{{\c{c}}}1 {Ç}{{\c{C}}}1
+         {â}{{\^a}}1 {ê}{{\^e}}1 {î}{{\^i}}1 {ô}{{\^o}}1 {û}{{\^u}}1
+         {à}{{\`a}}1 {À}{{\`A}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+         {Ã}{{\~A}}1 {Õ}{{\~O}}1
+         {Â}{{\^A}}1 {Ê}{{\^E}}1 {Î}{{\^I}}1 {Ô}{{\^O}}1 {Û}{{\^U}}1
+         {—}{{---}}1
 }
 
 \title{\textbf{Notebook de Programação Competitiva}}
@@ -3772,6 +3773,121 @@ ll maxManhattanDist(const vector<pt>& v) {
 }
 \end{lstlisting}
 
+\subsection{Interseção de Semiplanos}
+$\mathcal{O}(N \log N)$ tempo e $\mathcal{O}(N)$ memória. Calcula o polígono convexo (em sentido anti-horário) resultante da interseção de $N$ semiplanos. Cada semiplano é definido pela região à \textbf{esquerda} da reta direcionada que passa por $p$ na direção do vetor $pq$ (ou seja, pontos $r$ tais que $\overrightarrow{pq} \times \overrightarrow{pr} \ge 0$). Inclui uma \textit{bounding box} de tamanho \texttt{INF} para tratar regiões ilimitadas. Retorna vetor vazio se a interseção for vazia. \textbf{Atenção:} Se a interseção degenerada em ponto ou segmento não for válida no problema, verifique se a área do polígono retornado é maior que \texttt{EPS} (ou se o tamanho é $\ge 3$ sem colineares/duplicados). Para coordenadas muito grandes ou alta sensibilidade numérica, troque \texttt{double} por \texttt{long double} e ajuste \texttt{INF} de acordo com os limites do problema.
+\begin{lstlisting}
+const double EPS = 1e-9;
+const double INF = 1e9; // Ajustar conforme o limite das coordenadas
+
+struct Point {
+    double x, y;
+    Point(double x = 0, double y = 0) : x(x), y(y) {}
+    Point operator+(const Point& o) const { return Point(x + o.x, y + o.y); }
+    Point operator-(const Point& o) const { return Point(x - o.x, y - o.y); }
+    Point operator*(double k) const { return Point(x * k, y * k); }
+    double cross(const Point& o) const { return x * o.y - y * o.x; }
+};
+
+struct Halfplane {
+    Point p, pq; // Passa por p com vetor diretor pq
+    double angle;
+    Halfplane() {}
+    Halfplane(const Point& a, const Point& b) : p(a), pq(b - a) {
+        angle = atan2(pq.y, pq.x);
+    }
+
+    // Verifica se o ponto r esta estritamente FORA do semiplano
+    bool out(const Point& r) const {
+        return pq.cross(r - p) < -EPS;
+    }
+
+    bool operator<(const Halfplane& e) const {
+        if (abs(angle - e.angle) < EPS) return pq.cross(e.p - p) < 0;
+        return angle < e.angle;
+    }
+
+    // Intersecao das retas suporte de dois semiplanos nao-paralelos
+    friend Point isect(const Halfplane& s, const Halfplane& t) {
+        double alpha = (t.p - s.p).cross(t.pq) / s.pq.cross(t.pq);
+        return s.p + s.pq * alpha;
+    }
+};
+
+vector<Point> hpIntersect(vector<Halfplane>& H) {
+    // Bounding box para garantir regiao limitada (opcional se ja for fechada)
+    Point box[4] = {
+        Point(INF, INF), Point(-INF, INF),
+        Point(-INF, -INF), Point(INF, -INF)
+    };
+    for (int i = 0; i < 4; i++)
+        H.emplace_back(box[i], box[(i + 1) % 4]);
+
+    sort(H.begin(), H.end());
+    deque<Halfplane> dq;
+    int len = 0;
+
+    for (int i = 0; i < (int)H.size(); i++) {
+        // Ignora semiplanos paralelos redundantes (o mais restritivo ja veio primeiro no sort)
+        if (i > 0 && abs(H[i].angle - H[i - 1].angle) < EPS) continue;
+
+        while (len > 1 && H[i].out(isect(dq[len - 1], dq[len - 2]))) {
+            dq.pop_back();
+            len--;
+        }
+        while (len > 1 && H[i].out(isect(dq[0], dq[1]))) {
+            dq.pop_front();
+            len--;
+        }
+
+        dq.push_back(H[i]);
+        len++;
+    }
+
+    while (len > 2 && dq[0].out(isect(dq[len - 1], dq[len - 2]))) {
+        dq.pop_back();
+        len--;
+    }
+    while (len > 2 && dq[len - 1].out(isect(dq[0], dq[1]))) {
+        dq.pop_front();
+        len--;
+    }
+
+    if (len < 3) return {};
+
+    vector<Point> ret(len);
+    for (int i = 0; i < len; i++)
+        ret[i] = isect(dq[i], dq[(i + 1) % len]);
+    return ret;
+}
+\end{lstlisting}
+
+\subsection{Rotating Calipers (Diâmetro de Polígono Convexo)}
+$\mathcal{O}(N)$ tempo, $\mathcal{O}(1)$ memória extra. Retorna a maior distância euclidiana entre quaisquer dois pontos de um polígono convexo \texttt{p}. \textbf{Atenção:} Os vértices devem estar ordenados (sentido anti-horário ou horário) e \textbf{sem pontos colineares redundantes} nas bordas (ex: saída do Convex Hull estrito).
+\begin{lstlisting}
+double convex_diameter(const polygon& p) {
+    int n = p.size();
+    if (n <= 1) return 0.0;
+    if (n == 2) return abs(p[0] - p[1]);
+
+    auto dist2 = [](point a, point b) {
+        point d = a - b;
+        return d * d; // usa o produto escalar da struct point (dx*dx + dy*dy)
+    };
+
+    double max_d2 = 0.0;
+    for (int i = 0, j = 1; i < n; i++) {
+        point edge = p[(i + 1) % n] - p[i];
+        // Avanca o ponteiro antipodal 'j' enquanto a area do triangulo (altura relativa a aresta) aumentar
+        while (cmp(fabs(edge % (p[(j + 1) % n] - p[i])), fabs(edge % (p[j] - p[i]))) > 0) {
+            j = (j + 1) % n;
+        }
+        max_d2 = max({max_d2, dist2(p[i], p[j]), dist2(p[(i + 1) % n], p[j])});
+    }
+    return sqrt(max_d2);
+}
+\end{lstlisting}
+
+
 \section{Strings}
 
 \subsection{String Hashing}
@@ -4359,6 +4475,84 @@ void clearBIT(int n, int m) {
             BIT[i][j] = 0;
         }
     }
+}
+\end{lstlisting}
+
+\subsection{Sparse Table (Static Range Max / RMQ)}
+$\mathcal{O}(N \log N)$ build e memória, $\mathcal{O}(1)$ query para funções \textbf{idempotentes} ($\max$, $\min$, $\gcd$, bitwise AND/OR) e $\mathcal{O}(\log N)$ para associativas gerais (soma, multiplicação). Responde consultas em $[l, r]$ inclusivo (0-indexado) sobre um vetor \textbf{estático} (sem updates). \textbf{Dica:} A ordem \texttt{st[k][i]} garante melhor localidade de cache no build.
+\begin{lstlisting}
+const int MAXN = 200005;
+const int K = 20; // floor(log2(MAXN)) + 1 (2^18 > 2e5)
+int st[K][MAXN];
+
+int bit_log(int x) {
+    return 31 - __builtin_clz(x); // C++20: bit_width((unsigned)x) - 1
+}
+
+void stBuild(const vector<int>& v) {
+    int n = v.size();
+    copy(v.begin(), v.end(), st[0]);
+    for (int k = 1; k < K; k++)
+        for (int i = 0; i + (1 << k) <= n; i++)
+            st[k][i] = max(st[k - 1][i], st[k - 1][i + (1 << (k - 1))]);
+}
+
+// O(1) para operacoes idempotentes (max, min, gcd, &, |)
+int query(int l, int r) {
+    int k = bit_log(r - l + 1);
+    return max(st[k][l], st[k][r - (1 << k) + 1]);
+}
+
+// Opcional: O(log N) para operacoes nao-idempotentes (ex: soma)
+long long querySum(int l, int r) {
+    long long sum = 0; // elemento neutro
+    for (int k = K - 1; k >= 0; k--) {
+        if ((1 << k) <= r - l + 1) {
+            sum += st[k][l];
+            l += 1 << k;
+        }
+    }
+    return sum;
+}
+\end{lstlisting}
+
+\subsection{Sparse Table 2D (Range Max / Idempotente)}
+$\mathcal{O}(NM \log N \log M)$ build e memória, $\mathcal{O}(1)$ query. Responde consultas em submatrizes $[r_1, r_2] \times [c_1, c_2]$ inclusivas (0-indexado) para operações \textbf{idempotentes} ($\max$, $\min$, $\gcd$, \texttt{AND}, \texttt{OR}). \textbf{Atenção:} A memória é pesada ($\approx 400$ MB para $1000 \times 1000$ com \texttt{int}); ajuste \texttt{MAXN}, \texttt{MAXM}, \texttt{LOGN} e \texttt{LOGM} estritamente ao limite do problema e mantenha os índices de log nas primeiras dimensões do array para evitar \textit{cache miss}.
+\begin{lstlisting}
+const int MAXN = 1005, MAXM = 1005;
+const int LOGN = 11, LOGM = 11; // floor(log2(MAX)) + 1
+
+int st[LOGN][LOGM][MAXN][MAXM];
+
+void st2dBuild(const vector<vector<int>>& mat) {
+    int n = mat.size(), m = mat[0].size();
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++)
+            st[0][0][i][j] = mat[i][j];
+
+        for (int kj = 1; (1 << kj) <= m; kj++)
+            for (int j = 0; j + (1 << kj) <= m; j++)
+                st[0][kj][i][j] = max(st[0][kj - 1][i][j],
+                                      st[0][kj - 1][i][j + (1 << (kj - 1))]);
+    }
+
+    for (int ki = 1; (1 << ki) <= n; ki++)
+        for (int i = 0; i + (1 << ki) <= n; i++)
+            for (int kj = 0; (1 << kj) <= m; kj++)
+                for (int j = 0; j + (1 << kj) <= m; j++)
+                    st[ki][kj][i][j] = max(st[ki - 1][kj][i][j],
+                                           st[ki - 1][kj][i + (1 << (ki - 1))][j]);
+}
+
+// range max em [r1, r2] x [c1, c2] inclusivo
+int query(int r1, int c1, int r2, int c2) {
+    int kx = __lg(r2 - r1 + 1);
+    int ky = __lg(c2 - c1 + 1);
+    int m1 = max(st[kx][ky][r1][c1], st[kx][ky][r1][c2 - (1 << ky) + 1]);
+    int m2 = max(st[kx][ky][r2 - (1 << kx) + 1][c1],
+                 st[kx][ky][r2 - (1 << kx) + 1][c2 - (1 << ky) + 1]);
+    return max(m1, m2);
 }
 \end{lstlisting}
 
