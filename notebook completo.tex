@@ -4726,6 +4726,154 @@ int main()
 
 \end{lstlisting}
 
+\subsection{Segment Tree Iterativa (Point Update, Range Max)}
+$\mathcal{O}(N)$ build, $\mathcal{O}(\log N)$ update e query, $\mathcal{O}(2N)$ memória (não exige $N$ potência de $2$). Responde consultas de máximo no intervalo $[l, r]$ inclusivo (0-indexado) com constante muito baixa. Posições iniciam com $-\infty$. \textbf{Atenção:} Para operações \textbf{não-comutativas} (ex: multiplicação de matrizes, hash, soma máxima de subvetor), separe os acumuladores da esquerda (\texttt{resL}) e da direita (\texttt{resR}) na \texttt{query} e combine no final.
+\begin{lstlisting}
+const int INF = 2e9; // usar 4e18 se for long long
+int segN;
+vector<int> segTree;
+
+void segInit(int n) {
+    segN = n;
+    segTree.assign(2 * n, -INF);
+}
+
+// Opcional: build em O(N) a partir de um vetor inicial
+void segBuild(const vector<int>& v) {
+    segN = v.size();
+    segTree.resize(2 * segN);
+    for (int i = 0; i < segN; i++) segTree[segN + i] = v[i];
+    for (int i = segN - 1; i >= 1; i--)
+        segTree[i] = max(segTree[2 * i], segTree[2 * i + 1]);
+}
+
+void update(int pos, int v) {
+    pos += segN;
+    // Descomente a linha abaixo se quiser apenas aumentar (chmax):
+    // if (segTree[pos] >= v) return;
+    segTree[pos] = v;
+    for (pos >>= 1; pos >= 1; pos >>= 1)
+        segTree[pos] = max(segTree[2 * pos], segTree[2 * pos + 1]);
+}
+
+// range max em [l, r] inclusivo
+int query(int l, int r) {
+    int res = -INF;
+    for (l += segN, r += segN + 1; l < r; l >>= 1, r >>= 1) {
+        if (l & 1) res = max(res, segTree[l++]);
+        if (r & 1) res = max(res, segTree[--r]);
+    }
+    return res;
+}
+\end{lstlisting}
+
+\subsection{Sqrt Decomposition (Range Max Query)}
+$\mathcal{O}(N)$ build, $\mathcal{O}(\sqrt{N})$ query. Divide o vetor (0-indexado) em blocos de tamanho $\approx \sqrt{N}$ para consultas de máximo em $[l, r]$. Posições não atualizadas iniciam com $-\infty$. Possui \texttt{update} crescente em $\mathcal{O}(1)$ e \texttt{update\_set} geral (permite diminuir valores) em $\mathcal{O}(\sqrt{N})$ no pior caso.
+\begin{lstlisting}
+const int INF = 2e9; // usar 4e18 se for long long
+int BLOCK;
+vector<int> point, blockMax;
+
+void initSqrt(int n) {
+    BLOCK = max(1, (int)sqrt(n));
+    point.assign(n, -INF);
+    blockMax.assign(n / BLOCK + 2, -INF);
+}
+
+void update(int pos, int v) { // apenas aumenta: O(1)
+    if (v <= point[pos]) return;
+    point[pos] = v;
+    blockMax[pos / BLOCK] = max(blockMax[pos / BLOCK], v);
+}
+
+void update_set(int pos, int v) { // substituicao geral: O(sqrt(N))
+    int old = point[pos], b = pos / BLOCK;
+    point[pos] = v;
+    if (v >= blockMax[b]) {
+        blockMax[b] = v;
+    } else if (old == blockMax[b]) {
+        blockMax[b] = -INF;
+        int end = min((int)point.size(), (b + 1) * BLOCK);
+        for (int i = b * BLOCK; i < end; i++)
+            blockMax[b] = max(blockMax[b], point[i]);
+    }
+}
+
+int query(int l, int r) {
+    int bl = l / BLOCK, br = r / BLOCK, res = -INF;
+    if (bl == br) {
+        for (int i = l; i <= r; i++)
+            res = max(res, point[i]);
+        return res;
+    }
+    for (int i = l; i < (bl + 1) * BLOCK; i++)
+        res = max(res, point[i]);
+    for (int b = bl + 1; b < br; b++)
+        res = max(res, blockMax[b]);
+    for (int i = br * BLOCK; i <= r; i++)
+        res = max(res, point[i]);
+    return res;
+}
+\end{lstlisting}
+
+\subsection{Sqrt Decomposition com Lazy (Range Add, Range Max)}
+$\mathcal{O}(N)$ build, $\mathcal{O}(\sqrt{N})$ update em intervalo, $\mathcal{O}(\sqrt{N})$ query. Soma $v$ em $[l, r]$ e consulta o máximo em $[l, r]$ (0-indexado). Nos blocos inteiros, acumula em \texttt{lazy[b]}; nos blocos parciais das pontas, propaga o \texttt{lazy} (\texttt{push}) e recalcula \texttt{blockMax}. \textbf{Nota:} O vetor inicia zerado (trocar $0$ por $-\infty$ no \texttt{initSqrt} se posições vazias forem necessárias).
+\begin{lstlisting}
+const long long INF = 4e18;
+int BLOCK;
+vector<long long> point, blockMax, lazy;
+
+void initSqrt(int n) {
+    BLOCK = max(1, (int)sqrt(n));
+    point.assign(n, 0);
+    blockMax.assign(n / BLOCK + 2, 0);
+    lazy.assign(n / BLOCK + 2, 0);
+}
+
+void push_and_rebuild(int b, int ql, int qr, long long v) {
+    int start = b * BLOCK;
+    int end = min((int)point.size(), (b + 1) * BLOCK);
+    blockMax[b] = -INF;
+    for (int i = start; i < end; i++) {
+        point[i] += lazy[b];
+        if (i >= ql && i <= qr) point[i] += v;
+        blockMax[b] = max(blockMax[b], point[i]);
+    }
+    lazy[b] = 0;
+}
+
+void update(int l, int r, long long v) {
+    int bl = l / BLOCK, br = r / BLOCK;
+    if (bl == br) {
+        push_and_rebuild(bl, l, r, v);
+        return;
+    }
+    push_and_rebuild(bl, l, (bl + 1) * BLOCK - 1, v);
+    for (int b = bl + 1; b < br; b++) {
+        lazy[b] += v;
+        blockMax[b] += v;
+    }
+    push_and_rebuild(br, br * BLOCK, r, v);
+}
+
+long long query(int l, int r) {
+    int bl = l / BLOCK, br = r / BLOCK;
+    long long res = -INF;
+    if (bl == br) {
+        for (int i = l; i <= r; i++)
+            res = max(res, point[i] + lazy[bl]);
+        return res;
+    }
+    for (int i = l; i < (bl + 1) * BLOCK; i++)
+        res = max(res, point[i] + lazy[bl]);
+    for (int b = bl + 1; b < br; b++)
+        res = max(res, blockMax[b]);
+    for (int i = br * BLOCK; i <= r; i++)
+        res = max(res, point[i] + lazy[br]);
+    return res;
+}
+\end{lstlisting}
+
 \subsection{Sum Array 2D}
 Cria uma matriz de soma, para verificar a soma num quadrado usar a funcao soma, pode ser modificado para retangulo \textbf{O($N ^ 2$).}
 \begin{lstlisting}
