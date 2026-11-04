@@ -771,6 +771,27 @@ inline void dinic_clear() {
     for (int a = 0; a < MAXV; ++a) adj[a].clear();
     edges.clear();
 }
+
+// Retorna os pares (u, v) das arestas originais que formam o Min-Cut.
+// Chame APOS rodar dinic(_s, _t). Complexidade: O(V + E)
+vector<pair<int, int>> get_min_cut() {
+    vector<pair<int, int>> cut;
+    for (int u = 0; u < MAXV; ++u) {
+        if (dinic_dist[u] != -1) { // u pertence ao lado S (alcancavel na rede residual)
+            for (int ind : adj[u]) {
+                int v = edges[ind].to;
+                // (ind % 2 == 0) garante que eh aresta ORIGINAL (nao reversa)
+                // Se seu grafo for nao-direcionado com cap c nos dois sentidos, remova o (ind % 2 == 0)
+                if ((ind % 2 == 0) && dinic_dist[v] == -1) {
+                    cut.push_back({u, v});
+                    // Se precisar do ID da aresta (0-indexado), eh (ind / 2)
+                }
+            }
+        }
+    }
+    return cut;
+}
+
 \end{lstlisting}
 
 \subsection{Min Cost Max Flow (MCMF)}
@@ -888,6 +909,87 @@ struct MCMF
         return {flow, cost};
     }
 };
+\end{lstlisting}
+
+\subsection{Arestas do MinCut}
+ \textbf{O(Ef)} E=num de arestas, f=fluxomax.
+\begin{lstlisting}
+
+#include <bits/stdc++.h>
+using namespace std;
+//O(Ef) E=num de arestas, f=fluxomax
+struct Edge{
+    int to;
+    int cap;
+};
+
+const int N=112,INF=0x3f3f3f3f;
+
+int vis[N],anterior[N],aresta[N];
+vector<int> g[N];
+vector<Edge> edges;
+set<int> s;
+//Funcao auxiliar para criar arestas
+void addEdge(int a,int b,int c){
+    g[a].push_back(edges.size());
+    edges.push_back(Edge{b,c});
+    g[b].push_back(edges.size());
+    edges.push_back(Edge{a,c});
+}
+//Roda BFS para pegar o caminho
+int BFS(int ini, int fim){ // 1 se tiver caminho, 0 caso nao
+    int i;
+    queue<int> fila;
+    memset(vis,0,sizeof(vis));
+    fila.push(ini); vis[ini] = 1; anterior[ini] = -1;
+    while (!fila.empty()){
+        int a=fila.front();fila.pop();
+        for(auto i:g[a]){
+            int b=edges[i].to,c=edges[i].cap;
+            if(!vis[b]&&c){
+                anterior[b]=a;
+                aresta[b]=i;
+                if(b==fim) return 1;
+                fila.push(b);
+                vis[b]=1;
+            }
+        }
+    }
+    return 0;
+}
+
+int fluxoMaximo(int ini, int fim){
+    int u, v;
+    int fluxo = 0;
+    int bot;
+    while (BFS(ini, fim)){
+        bot = INF;
+        for (v = fim; v != ini; v = anterior[v]){
+            u = aresta[v];
+            bot = min(bot, edges[u].cap);
+        }
+        for (v = fim; v != ini; v = anterior[v]){
+            u = aresta[v];
+            edges[u].cap -= bot; edges[u^1].cap += bot; 
+        }
+        fluxo += bot;
+    }
+    return fluxo;
+}
+//Funcao que determina arestas que participam do minCut
+int minCut(int tam){
+    for(int i=0;i<tam;i++){
+        if(vis[i]){
+            for(auto j:g[i]){
+                int b=edges[j].to;
+                if(!vis[b]){
+                    s.insert(j/2+1);
+                }
+            }
+        }
+    }
+    return s.size();
+}
 \end{lstlisting}
 
 \subsection{Componentes Fortemente Conexos (Kosaraju)}
@@ -1637,87 +1739,6 @@ void tarjan(int n){
         dis[i] = low[i] = -1; ins[i] = 0; comp[i].clear();
     }
     for(int i = 0; i < n; i++) if (dis[i] == -1) DFS(i);
-}
-\end{lstlisting}
-
-\subsection{Arestas do MinCut}
- \textbf{O(Ef)} E=num de arestas, f=fluxomax.
-\begin{lstlisting}
-
-#include <bits/stdc++.h>
-using namespace std;
-//O(Ef) E=num de arestas, f=fluxomax
-struct Edge{
-    int to;
-    int cap;
-};
-
-const int N=112,INF=0x3f3f3f3f;
-
-int vis[N],anterior[N],aresta[N];
-vector<int> g[N];
-vector<Edge> edges;
-set<int> s;
-//Funcao auxiliar para criar arestas
-void addEdge(int a,int b,int c){
-    g[a].push_back(edges.size());
-    edges.push_back(Edge{b,c});
-    g[b].push_back(edges.size());
-    edges.push_back(Edge{a,c});
-}
-//Roda BFS para pegar o caminho
-int BFS(int ini, int fim){ // 1 se tiver caminho, 0 caso nao
-    int i;
-    queue<int> fila;
-    memset(vis,0,sizeof(vis));
-    fila.push(ini); vis[ini] = 1; anterior[ini] = -1;
-    while (!fila.empty()){
-        int a=fila.front();fila.pop();
-        for(auto i:g[a]){
-            int b=edges[i].to,c=edges[i].cap;
-            if(!vis[b]&&c){
-                anterior[b]=a;
-                aresta[b]=i;
-                if(b==fim) return 1;
-                fila.push(b);
-                vis[b]=1;
-            }
-        }
-    }
-    return 0;
-}
-
-int fluxoMaximo(int ini, int fim){
-    int u, v;
-    int fluxo = 0;
-    int bot;
-    while (BFS(ini, fim)){
-        bot = INF;
-        for (v = fim; v != ini; v = anterior[v]){
-            u = aresta[v];
-            bot = min(bot, edges[u].cap);
-        }
-        for (v = fim; v != ini; v = anterior[v]){
-            u = aresta[v];
-            edges[u].cap -= bot; edges[u^1].cap += bot; 
-        }
-        fluxo += bot;
-    }
-    return fluxo;
-}
-//Funcao que determina arestas que participam do minCut
-int minCut(int tam){
-    for(int i=0;i<tam;i++){
-        if(vis[i]){
-            for(auto j:g[i]){
-                int b=edges[j].to;
-                if(!vis[b]){
-                    s.insert(j/2+1);
-                }
-            }
-        }
-    }
-    return s.size();
 }
 \end{lstlisting}
 
