@@ -3738,6 +3738,39 @@ int main() {
 }
 \end{lstlisting}
 
+\subsection{Rotação de Manhattan (Chebyshev $\leftrightarrow$ Manhattan)}
+$\mathcal{O}(1)$ por ponto. Transforma $(x, y) \mapsto (x + y, x - y)$, rotacionando os eixos em $45^\circ$ e escalando por $\sqrt{2}$. Converte distância de Manhattan ($|x_1 - x_2| + |y_1 - y_2|$) em distância de Chebyshev ($\max(|u_1 - u_2|, |v_1 - v_2|)$), transformando bolas de Manhattan (losangos) em quadrados alinhados aos eixos (útil para sweep line e queries 2D). \textbf{Atenção:} Na volta $(u, v) \mapsto (\frac{u+v}{2}, \frac{u-v}{2})$, um par $(u, v)$ corresponde a coordenadas inteiras se e somente se $u \equiv v \pmod 2$ (mesma paridade). Cuidado com overflow: se $|x|, |y| \le 10^9$, $|u|, |v|$ chegam a $2 \cdot 10^9$ (cabe em \texttt{int}, mas diferenças $|u_1 - u_2|$ chegam a $4 \cdot 10^9$ $\rightarrow$ use \texttt{long long}).
+\begin{lstlisting}
+using ll = long long;
+struct pt { ll x, y; };
+
+// Manhattan -> Chebyshev: (x, y) -> (u, v)
+pt toChebyshev(pt p) {
+    return {p.x + p.y, p.x - p.y};
+}
+
+// Chebyshev -> Manhattan: exige (u + v) par!
+pt toManhattan(pt p) {
+    return {(p.x + p.y) / 2, (p.x - p.y) / 2}; // usar >> 1 se quiser floor p/ negativos
+}
+
+// Dist. de Chebyshev em coordenadas rotacionadas == Dist. de Manhattan original
+ll distChebyshev(pt a, pt b) {
+    return max(abs(a.x - b.x), abs(a.y - b.y));
+}
+
+// Maior distancia de Manhattan entre quaisquer dois pontos em O(N)
+ll maxManhattanDist(const vector<pt>& v) {
+    ll minU = 4e18, maxU = -4e18;
+    ll minV = 4e18, maxV = -4e18;
+    for (auto p : v) {
+        pt q = toChebyshev(p);
+        minU = min(minU, q.x); maxU = max(maxU, q.x);
+        minV = min(minV, q.y); maxV = max(maxV, q.y);
+    }
+    return max(maxU - minU, maxV - minV);
+}
+\end{lstlisting}
 
 \section{Strings}
 
