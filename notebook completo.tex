@@ -3493,6 +3493,28 @@ vector<point> minkowski(vector<point> P, vector<point> Q){
 
 \end{lstlisting}
 
+\subsection{CMP Polar}
+
+\begin{lstlisting}
+// 0: Semiplano superior [0, 180) | 1: Semiplano inferior [180, 360)
+int half(point p) {
+    return cmp(p.y) < 0 || (cmp(p.y) == 0 && cmp(p.x) < 0);
+}
+
+// Ordena em sentido anti-horario (360 graus) ao redor de point::pivot
+bool cmp_polar(point a, point b) {
+    point pa = a - point::pivot, pb = b - point::pivot;
+    int ha = half(pa), hb = half(pb);
+    if (ha != hb) return ha < hb;
+    
+    int order = ccw(point::pivot, a, b);
+    if (order != 0) return order > 0;
+    
+    // Desempata pelo mais proximo do pivot usando produto escalar (norma ao quadrado)
+    return cmp(pa * pa, pb * pb) < 0;
+}
+\end{lstlisting}
+
 \subsection{Implementação Sweep Radial}
 $\mathcal{O}(N + M \log N + M \log M)$
 
@@ -6001,6 +6023,41 @@ int main(){
 }
 \end{lstlisting}
 
+\subsection{Knuth's Optimization (DP de Intervalos / Partição)}
+Reduz a complexidade de $\mathcal{O}(N^3)$ para $\mathcal{O}(N^2)$ com $\mathcal{O}(N^2)$ de memória. Aplica-se a DPs na forma $dp[i][j] = \min_{i \le k < j} \{dp[i][k] + dp[k+1][j]\} + C(i, j)$ (0-indexado, intervalo $[i, j]$ inclusivo). Exige que o ponto ótimo $opt[i][j]$ satisfaça $opt[i][j-1] \le opt[i][j] \le opt[i+1][j]$. Isso é garantido se $C(i, j)$ satisfizer para $a \le b \le c \le d$: \textbf{Desigualdade Quadrangular} ($C(a, c) + C(b, d) \le C(a, d) + C(b, c)$) e \textbf{Monotonicidade} ($C(b, c) \le C(a, d)$). \textbf{Atenção:} Não funciona em geral para maximização (a desigualdade quadrangular inverte o sentido da condição necessária).
+\begin{lstlisting}
+const long long INF = 4e18;
+
+// C(i, j): funcao de custo do intervalo [i, j] em O(1)
+long long C(int i, int j);
+
+long long knuthOptimization(int n) {
+    vector<vector<long long>> dp(n, vector<long long>(n, INF));
+    vector<vector<int>> opt(n, vector<int>(n));
+
+    for (int i = 0; i < n; i++) {
+        dp[i][i] = 0; // ou C(i, i), dependendo do caso base do problema
+        opt[i][i] = i;
+    }
+
+    // i decrescente e j crescente garantem opt[i][j-1] e opt[i+1][j] prontos
+    for (int i = n - 2; i >= 0; i--) {
+        for (int j = i + 1; j < n; j++) {
+            long long cost = C(i, j);
+            int mn = opt[i][j - 1];
+            int mx = min(j - 1, opt[i + 1][j]);
+            for (int k = mn; k <= mx; k++) {
+                long long val = dp[i][k] + dp[k + 1][j] + cost;
+                if (val <= dp[i][j]) {
+                    dp[i][j] = val;
+                    opt[i][j] = k;
+                }
+            }
+        }
+    }
+    return dp[0][n - 1];
+}
+\end{lstlisting}
 
 \section{Extras}
 
