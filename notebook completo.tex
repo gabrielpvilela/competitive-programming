@@ -3515,6 +3515,29 @@ bool cmp_polar(point a, point b) {
 }
 \end{lstlisting}
 
+\subsection{Sweep Radial}
+
+\begin{lstlisting}
+struct Event {
+    point dir;  // Vetor direcional JÁ transladado: ponto - pivot
+    int tipo;   // +1 para entrada, -1 para saída
+    
+    bool operator<(const Event& other) const {
+        // Função half() adaptada para a origem (0, 0)
+        int ha = (dir.y < 0 || (dir.y == 0 && dir.x < 0));
+        int hb = (other.dir.y < 0 || (other.dir.y == 0 && other.dir.x < 0));
+        
+        if (ha != hb) return ha < hb; // Separa semiplano superior e inferior
+        
+        long long cross = (dir % other.dir); // Cross product (% do seu template)
+        if (cross != 0) return cross > 0;   // Sentido anti-horário
+        
+        // Desempate se estiverem na mesma linha exata
+        return tipo < other.tipo; 
+    }
+};
+\end{lstlisting}
+
 \subsection{Implementação Sweep Radial}
 $\mathcal{O}(N + M \log N + M \log M)$
 
