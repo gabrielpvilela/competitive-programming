@@ -3356,7 +3356,7 @@ struct point{
     long long x, y;
     point operator+ (const point & p) const { return point{x + p.x, y + p.y}; }
     point operator- (const point & p) const { return point{x - p.x, y - p.y}; }
-    double operator%(point q) const { return x * q.y - y * q.x; } // cross
+    long long operator%(point q) const { return x * q.y - y * q.x; } // cross
 };
 
 void reorder_polygon(vector<point> & P){
