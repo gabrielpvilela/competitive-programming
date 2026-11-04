@@ -2792,6 +2792,76 @@ int carry = 0;
 */
 \end{lstlisting}
 
+\subsection{Number Theoretic Transform (NTT)}
+$\mathcal{O}(N \log N)$ tempo e $\mathcal{O}(N)$ memória para convolução modular exata de polinômios ($c_k = \sum_{i+j=k} a_i b_j \pmod p$). \textbf{Quando usar:} Exige módulo primo $p = c \cdot 2^k + 1$, com $2^k \ge |A| + |B| - 1$ (suporta $N \le 2^k$). \textbf{Primos ($p = c \cdot 2^k + 1$, raiz $g$):} Padrão: $998244353$ ($119 \cdot 2^{23} + 1, g = 3, N \le 8.3 \times 10^6$). Trinca para CRT: $167772161$ ($5 \cdot 2^{25} + 1, g = 3$), $469762049$ ($7 \cdot 2^{26} + 1, g = 3$) e $754974721$ ($45 \cdot 2^{24} + 1, g = 11$). Outros: $1004535809$ ($479 \cdot 2^{21} + 1, g = 3$), $1224736769$ ($73 \cdot 2^{24} + 1, g = 3$), $2013265921$ ($15 \cdot 2^{27} + 1, g = 31$) e, em $62$ bits, $4179340454199820289$ ($29 \cdot 2^{57} + 1, g = 3$; trocar \texttt{int} por \texttt{long long} e \texttt{1LL} por \texttt{\_\_int128}). \textbf{NTT vs. FFT:} Prefira NTT sempre que o problema pedir resposta módulo um primo compatível ou quando os coeficientes finais da convolução inteira não ultrapassarem $p$ — a NTT opera apenas com inteiros (evitando erros de precisão de ponto flutuante da FFT) e usa menos memória. Use FFT apenas para coeficientes reais ou módulos arbitrários (alternativamente, aplique NTT com a trinca de primos + CRT).
+\begin{lstlisting}
+const int MOD = 998244353; // 119 * 2^23 + 1
+const int ROOT = 3;        // Raiz primitiva modulo MOD
+
+long long modPow(long long base, long long exp) {
+    long long res = 1;
+    base %= MOD;
+    while (exp > 0) {
+        if (exp & 1) res = (res * base) % MOD;
+        base = (base * base) % MOD;
+        exp >>= 1;
+    }
+    return res;
+}
+
+void ntt(vector<int>& a, bool invert) {
+    int n = a.size();
+    for (int i = 1, j = 0; i < n; i++) {
+        int bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) swap(a[i], a[j]);
+    }
+
+    int root = modPow(ROOT, (MOD - 1) / n);
+    if (invert) root = modPow(root, MOD - 2);
+
+    for (int len = 2; len <= n; len <<= 1) {
+        int wlen = modPow(root, n / len);
+        for (int i = 0; i < n; i += len) {
+            int w = 1;
+            for (int j = 0; j < len / 2; j++) {
+                int u = a[i + j];
+                int v = (1LL * a[i + j + len / 2] * w) % MOD;
+                a[i + j] = u + v < MOD ? u + v : u + v - MOD;
+                a[i + j + len / 2] = u - v >= 0 ? u - v : u - v + MOD;
+                w = (1LL * w * wlen) % MOD;
+            }
+        }
+    }
+
+    if (invert) {
+        int nInv = modPow(n, MOD - 2);
+        for (int& x : a) x = (1LL * x * nInv) % MOD;
+    }
+}
+
+vector<int> multiply(const vector<int>& a, const vector<int>& b) {
+    if (a.empty() || b.empty()) return {};
+    int resSize = (int)a.size() + (int)b.size() - 1;
+    int n = 1;
+    while (n < resSize) n <<= 1;
+
+    vector<int> fa(a.begin(), a.end()), fb(b.begin(), b.end());
+    fa.resize(n);
+    fb.resize(n);
+
+    ntt(fa, false);
+    ntt(fb, false);
+    for (int i = 0; i < n; i++)
+        fa[i] = (1LL * fa[i] * fb[i]) % MOD;
+    ntt(fa, true);
+
+    fa.resize(resSize);
+    return fa;
+}
+\end{lstlisting}
+
 \subsection{Crivo Segmentado}
 Computa os primos num intervalo L..R \textbf{O((R-L+1)loglogR + sqrt(R)loglog(sqrt(R))).}
 \begin{lstlisting}
@@ -4874,23 +4944,138 @@ long long query(int l, int r) {
 }
 \end{lstlisting}
 
-\subsection{Sum Array 2D}
-Cria uma matriz de soma, para verificar a soma num quadrado usar a funcao soma, pode ser modificado para retangulo \textbf{O($N ^ 2$).}
+\subsection{Li Chao Tree (Retas e Segmentos - Min)}
+$\mathcal{O}(N)$ init, $\mathcal{O}(\log N)$ \texttt{addLine} e \texttt{query}, $\mathcal{O}(\log^2 N)$ \texttt{addSegment}, $\mathcal{O}(4N)$ memória (não exige $N$ potência de $2$). Mantém funções $f(x) = ax + b$ (ou curvas com cruzamento único) e responde o mínimo em $x \in [0, N-1]$ (0-indexado); posições iniciam com $+\infty$. \textbf{Atenção:} Para consultas de \textbf{máximo}, insira \texttt{\{-a, -b\}} e tome \texttt{-query(x)}. Para coordenadas grandes ou negativas offline, comprima os $x$ das queries em um vetor ordenado \texttt{xs} e avalie as retas em \texttt{xs[l]}, \texttt{xs[m]} e \texttt{xs[x]}.
 \begin{lstlisting}
+using ll = long long;
+const ll INF = 4e18;
 
-const int N=1123;
-int prefix[N][N],vet[N][N];
-void monta(int n,int m){
-  memset(prefix,0,sizeof(prefix));
-  for(int i=1;i<=n;i++){
-    for(int j=1;j<=m;j++) prefix[i][j]=prefix[i-1][j]+prefix[i][j-1]-prefix[i-1][j-1]+vet[i-1][j-1];
-  }
+struct Line {
+    ll a, b;
+    ll operator()(ll x) const { return a * x + b; }
+};
+
+int lcN;
+vector<Line> lcTree;
+
+void lcInit(int n) {
+    lcN = n;
+    lcTree.assign(4 * n, {0, INF});
 }
 
-int soma(int x,int y,int lado){
-  return prefix[x+lado][y+lado]-prefix[x+lado][y-1]-prefix[x-1][y+lado]+prefix[x-1][y-1];
+void addLine(Line nw, int v = 1, int l = 0, int r = lcN) {
+    int m = (l + r) / 2;
+    bool lef = nw(l) < lcTree[v](l);
+    bool mid = nw(m) < lcTree[v](m);
+    if (mid) swap(lcTree[v], nw);
+    if (r - l == 1) return;
+    if (lef != mid) addLine(nw, 2 * v, l, m);
+    else addLine(nw, 2 * v + 1, m, r);
+}
+
+// adiciona segmento de reta valido apenas em [ql, qr] inclusivo
+void addSegment(Line nw, int ql, int qr, int v = 1, int l = 0, int r = lcN) {
+    if (ql > qr || qr < l || r <= ql) return;
+    if (ql <= l && r - 1 <= qr) {
+        addLine(nw, v, l, r);
+        return;
+    }
+    int m = (l + r) / 2;
+    addSegment(nw, ql, qr, 2 * v, l, m);
+    addSegment(nw, ql, qr, 2 * v + 1, m, r);
+}
+
+ll query(int x, int v = 1, int l = 0, int r = lcN) {
+    ll res = lcTree[v](x);
+    if (r - l == 1) return res;
+    int m = (l + r) / 2;
+    if (x < m) return min(res, query(x, 2 * v, l, m));
+    return min(res, query(x, 2 * v + 1, m, r));
 }
 \end{lstlisting}
+
+\subsection{Li Chao Tree Dinâmica / Esparsa (Online)}
+$\mathcal{O}(\log C)$ \texttt{addLine} e \texttt{query}, $\mathcal{O}(\log^2 C)$ \texttt{addSegment}, onde $C = R - L$ é o tamanho do domínio (ex: $[-10^9, 10^9]$). Memória $\mathcal{O}(Q \log C)$ para retas ou $\mathcal{O}(Q \log^2 C)$ para segmentos (reserve espaço se o limite de memória for apertado). Mantém funções $f(x) = ax + b$ para $x \in [L, R]$ inclusivo; posições iniciam com $+\infty$. \textbf{Atenção:} Cuide de \textbf{overflow} em $a \cdot x + b$ se $|a|, |x| > 10^9$ (use \texttt{\_\_int128} no \texttt{operator()} se necessário). Para consultas de \textbf{máximo}, insira \texttt{\{-a, -b\}} e tome \texttt{-query(x)}.
+\begin{lstlisting}
+using ll = long long;
+const ll INF = 4e18; // se usar __int128, ajuste INF adequadamente
+
+struct Line {
+    ll a, b;
+    ll operator()(ll x) const { return a * x + b; }
+};
+
+struct Node {
+    Line ln = {0, INF};
+    int lc = -1, rc = -1;
+};
+
+ll lcL, lcR; // intervalo semiaberto interno [lcL, lcR)
+vector<Node> lcTree;
+
+// inicializa dominio [minX, maxX] inclusivo (ex: -1e9, 1e9)
+void lcInit(ll minX, ll maxX) {
+    lcL = minX;
+    lcR = maxX + 1;
+    lcTree.clear();
+    lcTree.emplace_back(); // raiz = 0
+}
+
+void addLine(Line nw, int v = 0, ll l = lcL, ll r = lcR) {
+    ll m = l + (r - l) / 2;
+    bool lef = nw(l) < lcTree[v].ln(l);
+    bool mid = nw(m) < lcTree[v].ln(m);
+    if (mid) swap(lcTree[v].ln, nw);
+    if (r - l == 1 || nw.b == INF) return;
+    if (lef != mid) {
+        if (lcTree[v].lc == -1) {
+            lcTree[v].lc = lcTree.size();
+            lcTree.emplace_back();
+        }
+        addLine(nw, lcTree[v].lc, l, m);
+    } else {
+        if (lcTree[v].rc == -1) {
+            lcTree[v].rc = lcTree.size();
+            lcTree.emplace_back();
+        }
+        addLine(nw, lcTree[v].rc, m, r);
+    }
+}
+
+// adiciona segmento valido apenas em [ql, qr] inclusivo
+void addSegment(Line nw, ll ql, ll qr, int v = 0, ll l = lcL, ll r = lcR) {
+    if (ql > qr || qr < l || r <= ql) return;
+    if (ql <= l && r - 1 <= qr) {
+        addLine(nw, v, l, r);
+        return;
+    }
+    ll m = l + (r - l) / 2;
+    if (ql < m) {
+        if (lcTree[v].lc == -1) {
+            lcTree[v].lc = lcTree.size();
+            lcTree.emplace_back();
+        }
+        addSegment(nw, ql, qr, lcTree[v].lc, l, m);
+    }
+    if (qr >= m) {
+        if (lcTree[v].rc == -1) {
+            lcTree[v].rc = lcTree.size();
+            lcTree.emplace_back();
+        }
+        addSegment(nw, ql, qr, lcTree[v].rc, m, r);
+    }
+}
+
+ll query(ll x, int v = 0, ll l = lcL, ll r = lcR) {
+    if (v == -1) return INF;
+    ll res = lcTree[v].ln(x);
+    if (r - l == 1) return res;
+    ll m = l + (r - l) / 2;
+    if (x < m) return min(res, query(x, lcTree[v].lc, l, m));
+    return min(res, query(x, lcTree[v].rc, m, r));
+}
+\end{lstlisting}
+
 
 \subsection{Order Statistic Set}
 $\mathcal{O}(logN)$ todas operações
